@@ -16,7 +16,6 @@
   // Jupyter Configuration
   "jupyter.askForKernelRestart": false,
   "jupyter.interactiveWindow.collapseCellInputCode": "firstLine",
-  "jupyter.sendSelectionToInteractiveWindow": true,
   "notebook.cellToolbarLocation": {
     "default": "right",
     "jupyter-notebook": "left"
@@ -61,5 +60,6 @@
     "**/*.code-search": true,
     "**/__pycache__": true,
     "**/*.pyc": true
-  }
+  },
+  "jupyter.interactiveWindow.textEditor.executeSelection": true
 }
