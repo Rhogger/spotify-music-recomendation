@@ -10,6 +10,7 @@ pandas = "*"
 numpy = "*"
 streamlit = "*"
 ruff = "*"
+scikit-learn = "*"
 
 [dev-packages]
 nbstripout = "*"
