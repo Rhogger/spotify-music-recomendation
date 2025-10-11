@@ -188,8 +188,13 @@ venv/
 
 # VS Code workspace files (keeping settings)
 *.code-workspace
-.vscode/
+# VS Code workspace files (keeping settings)
+*.code-workspace
+# Ignore files inside .vscode but allow specific workspace/settings files to be committed
+.vscode/*
+!.vscode/
 !.vscode/settings.json
+!.vscode/spotify-recommendation.code-workspace
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
