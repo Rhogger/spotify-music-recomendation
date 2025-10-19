@@ -1,8 +1,45 @@
 import streamlit as st
 import random
+import joblib
+import pickle
+import pandas as pd
+import numpy as np
+import os
+
+@st.cache_resource
+def load_model():
+    # Diretório onde está este arquivo (app.py)
+    base_path = os.path.dirname(__file__)
+    ia_path = os.path.abspath(os.path.join(base_path, "../../ia/src"))
+
+    path_model = os.path.join(ia_path, "joblib/music_recommender_model.joblib")
+    path_preprocessor = os.path.join(ia_path, "joblib/music_preprocessor.joblib")
+    path_df = os.path.join(ia_path, "datasets/data_clean.csv")
+    path_features = os.path.join(ia_path, "joblib/music_model_features.pkl")
+    model = joblib.load(path_model)
+    preprocessor = joblib.load(path_preprocessor)
+    try:
+        df = pd.read_csv(path_df)
+    except Exception:
+        df = None
+        
+    with open(path_features, "rb") as f:
+        features = pickle.load(f)
+    return model, preprocessor, df, features
+
+model, preprocessor, df_model, features = load_model()
+
+def recomendar_musica(input_dict, df=df_model, model=model, preprocessor=preprocessor, features=features, top_n=5):
+    input_df = pd.DataFrame([input_dict])[features]
+    input_scaled = preprocessor.transform(input_df)
+    distances, indices = model.kneighbors(input_scaled, n_neighbors=top_n)
+    resultados = df.iloc[indices[0]].copy().reset_index(drop=True)
+    resultados['distancia'] = distances[0]
+    return resultados
+
 
 st.set_page_config(
-    page_title="Spotify Recommendations",
+    page_title="Recomendações Spotify",
     page_icon="🎵",
     layout="wide"
 )
@@ -132,180 +169,114 @@ body, .main, .block-container {
 """, unsafe_allow_html=True)
 
 st.markdown(
-    '<div class="header-title"><div class="spotify-icon">♪</div>Spotify Recommendations</div>',
+    '<div class="header-title"><div class="spotify-icon">♪</div>Recomendações Spotify</div>',
     unsafe_allow_html=True
 )
 
 col1, col2 = st.columns([1, 2], gap="large")
 
 with col1:
-    st.markdown("### Recommendation Parameters")
+    st.markdown("### Parâmetros")
 
     with st.form(key="reco_form"):
         st.markdown('<div class="slider-group">', unsafe_allow_html=True)
-        pop = st.slider("Popularity", 0, 100, 50, 1, key="pop_slider")
+        pop = st.slider("Popularidade ", 0, 100, 50, 1, key="pop_slider")
         st.markdown(f'''
-<div class="slider-label"><span>Popularity</span><span>{pop}</span></div>
+<div class="slider-label"><span>Popularidade </span><span>{pop}</span></div>
 ''', unsafe_allow_html=True)
 
-        dance = st.slider("Danceability", 0, 100, 75, 1, key="dance_slider")
+        dance = st.slider("Dançabilidade", 0, 100, 75, 1, key="dance_slider")
         st.markdown(f'''
-<div class="slider-label"><span>Danceability</span><span>{dance}</span></div>
+<div class="slider-label"><span>Dançabilidade</span><span>{dance}</span></div>
 ''', unsafe_allow_html=True)
 
-        energy = st.slider("Energy", 0, 100, 80, 1, key="energy_slider")
+        energy = st.slider("Energia", 0, 100, 80, 1, key="energy_slider")
         st.markdown(f'''
-<div class="slider-label"><span>Energy</span><span>{energy}</span></div>
+<div class="slider-label"><span>Energia </span><span>{energy}</span></div>
+''', unsafe_allow_html=True)
+        
+        speech = st.slider("Discurso", 0, 100, 80, 1, key="speechiness_slider")
+        st.markdown(f'''
+<div class="slider-label"><span>Discurso</span><span>{speech}</span></div>
 ''', unsafe_allow_html=True)
 
-        vocal = st.slider("Vocality", 0, 100, 30, 1, key="vocal_slider")
+        acoustic = st.slider("Acústica", 0, 100, 20, 1, key="acoustic_slider")
         st.markdown(f'''
-<div class="slider-label"><span>Vocality</span><span>{vocal}</span></div>
+<div class="slider-label"><span>Acústica</span><span>{acoustic}</span></div>
 ''', unsafe_allow_html=True)
 
-        acoustic = st.slider("Acousticness", 0, 100, 20, 1, key="acoustic_slider")
+        instr = st.slider("Instrumentalidade", 0, 100, 60, 1, key="instr_slider")
         st.markdown(f'''
-<div class="slider-label"><span>Acousticness</span><span>{acoustic}</span></div>
-''', unsafe_allow_html=True)
-
-        instr = st.slider("Instrumentalness", 0, 100, 60, 1, key="instr_slider")
-        st.markdown(f'''
-<div class="slider-label"><span>Instrumentalness</span><span>{instr}</span></div>
+<div class="slider-label"><span>Instrumentalidade</span><span>{instr}</span></div>
 ''', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         submit = st.form_submit_button("Gerar recomendação", use_container_width=True)
 
     if submit:
-        st.session_state.generate_music = True
-        if "filtered_songs" in st.session_state:
-            del st.session_state.filtered_songs
+        input_dict = {
+            "popularity": pop / 100.0,
+            "danceability": dance / 100.0,
+            "energy": energy / 100.0,
+            "speechiness": speech / 100.0,
+            "acousticness": acoustic / 100.0,
+            "instrumentalness": instr / 100.0
+        }
+
+        try:
+            resultados = recomendar_musica(input_dict, top_n=10)
+            st.session_state['last_recommendations'] = resultados
+        except Exception as e:
+            st.error(f"Erro ao gerar recomendação: {e}")
 
 with col2:
-    st.markdown("### Recommended Tracks")
+    st.markdown("### Músicas Recomendadas")
 
-    display_songs = [
-        {
-            "title": "Blinding Lights",
-            "artist": "The Weeknd",
-            "genres": "Pop"
-        },
-        {
-            "title": "Levitating",
-            "artist": "Dua Lipa",
-            "genres": "Dance Pop"
-        },
-        {
-            "title": "Good 4 U",
-            "artist": "Olivia Rodrigo",
-            "genres": "Pop Rock"
-        },
-        {
-            "title": "Stay",
-            "artist": "The Kid LAROI & Justin Bieber",
-            "genres": "Pop"
-        },
-        {
-            "title": "Industry Baby",
-            "artist": "Lil Nas X ft. Jack Harlow",
-            "genres": "Hip Hop"
-        },
-        {
-            "title": "Heat Waves",
-            "artist": "Glass Animals",
-            "genres": "Indie Pop"
-        },
-        {
-            "title": "Bad Habits",
-            "artist": "Ed Sheeran",
-            "genres": "Pop"
-        },
-        {
-            "title": "Peaches",
-            "artist": "Justin Bieber ft. Daniel Caesar",
-            "genres": "R&B"
-        },
-        {
-            "title": "Montero",
-            "artist": "Lil Nas X",
-            "genres": "Hip Hop"
-        },
-        {
-            "title": "Kiss Me More",
-            "artist": "Doja Cat ft. SZA",
-            "genres": "R&B"
-        },
-        {
-            "title": "Positions",
-            "artist": "Ariana Grande",
-            "genres": "R&B"
-        },
-        {
-            "title": "Watermelon Sugar",
-            "artist": "Harry Styles",
-            "genres": "Pop Rock"
-        },
-        {
-            "title": "drivers license",
-            "artist": "Olivia Rodrigo",
-            "genres": "Pop"
-        },
-        {
-            "title": "Save Your Tears",
-            "artist": "The Weeknd",
-            "genres": "Synthpop"
-        },
-        {
-            "title": "As It Was",
-            "artist": "Harry Styles",
-            "genres": "Pop"
-        },
-        {
-            "title": "Easy On Me",
-            "artist": "Adele",
-            "genres": "Pop"
-        },
-        {
-            "title": "Telepatía",
-            "artist": "Kali Uchis",
-            "genres": "R&B"
-        },
-        {
-            "title": "bad guy",
-            "artist": "Billie Eilish",
-            "genres": "Electropop"
-        },
-        {
-            "title": "Dance Monkey",
-            "artist": "Tones and I",
-            "genres": "Alternative/Indie"
-        },
-        {
-            "title": "Sunflower",
-            "artist": "Post Malone & Swae Lee",
-            "genres": "Hip Hop"
-        },
-        {
-            "title": "Someone You Loved",
-            "artist": "Lewis Capaldi",
-            "genres": "Pop"
-        }
-    ]
+    input_dict = {
+            "popularity": pop / 100.0,
+            "danceability": dance / 100.0,
+            "energy": energy / 100.0,
+            "speechiness": speech / 100.0,
+            "acousticness": acoustic / 100.0,
+            "instrumentalness": instr / 100.0
+    }
 
-    if hasattr(st.session_state, 'generate_music') and st.session_state.generate_music:
-        filtered_tracks = random.sample(display_songs, len(display_songs))
+    try:
+        resultados = recomendar_musica(input_dict, top_n=10)
+        st.session_state['last_recommendations'] = resultados
+    except Exception as e:
+            st.error(f"Erro ao gerar recomendação: {e}")
+        
+    display_songs = []
+
+    # Verifica se há recomendações geradas pelo modelo
+    if "last_recommendations" in st.session_state and st.session_state["last_recommendations"] is not None:
+        resultados = st.session_state["last_recommendations"]
+
+        # Converte o DataFrame em uma lista de dicionários compatível com o layout
+        display_list = []
+        for _, row in resultados.iterrows():
+            display_list.append({
+                "title": row.get("title", row.get("song", "Unknown Title")),
+                "artist": row.get("artist", row.get("artists", "Unknown Artist")),
+                "genres": row.get("genres", row.get("genre", ""))
+            })
+
     else:
-        filtered_tracks = display_songs
+        # Fallback: usa a lista estática padrão
+        display_list = display_songs
 
+    # Gera o HTML dos cards (mesmo estilo que você já tinha)
     html_tracks = '<div class="tracks-grid scrollable-list">'
-    for song in filtered_tracks:
+    for song in display_list:
         html_tracks += f"""
-          \n<div class="track-card">
-            <div class="track-image">🖼</div>
+        \n<div class="track-card">
+            <!--<div class="track-image">🖼</div>-->
             <div class="track-title">{song['title']}</div>
             <div class="track-artist">{song['artist']}</div>
             <div class="track-genres">{song['genres']}</div>
           </div>\n
         """
+    # html_tracks += "</div>"
 
     st.markdown(html_tracks, unsafe_allow_html=True)
 
