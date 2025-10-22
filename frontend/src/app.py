@@ -4,6 +4,7 @@ import pickle
 import joblib
 import pandas as pd
 import streamlit as st
+from ui.components import header, slider_with_label, track_card_html
 from ui.styles import load_styles
 
 
@@ -51,67 +52,43 @@ def recomendar_musica(
 st.set_page_config(page_title="Recomendações Spotify", page_icon="🎵", layout="wide")
 st.markdown(load_styles(), unsafe_allow_html=True)
 
-st.markdown(
-    '<div class="header-title"><div class="spotify-icon">♪</div>Recomendações Spotify</div>',
-    unsafe_allow_html=True,
-)
+header()
 
-col1, col2 = st.columns([1, 2], gap="large")
+col1, col2 = st.columns([1, 2], gap=None)
 
 with col1:
-    st.markdown("### Parâmetros")
+    with st.form(key="reco_form", border=False):
+        with st.container():
+            st.markdown("### Parâmetros")
 
-    with st.form(key="reco_form"):
-        st.markdown('<div class="slider-group">', unsafe_allow_html=True)
-        pop = st.slider("Popularidade ", 0, 100, 50, 1, key="pop_slider")
-        st.markdown(
-            f"""
-<div class="slider-label"><span>Popularidade </span><span>{pop}</span></div>
-""",
-            unsafe_allow_html=True,
-        )
+            pop = slider_with_label(
+                "Popularidade", "Indica a popularidade da música", "pop_slider"
+            )
+            dance = slider_with_label(
+                "Dançabilidade", "Indica quão dançável é a música", "dance_slider"
+            )
+            energy = slider_with_label(
+                "Energia",
+                "Indica quão energética e vibrante é a música",
+                "energy_slider",
+            )
+            speech = slider_with_label(
+                "Discurso",
+                "Indica quão a música tem presença de palavras faladas",
+                "speechiness_slider",
+            )
+            acoustic = slider_with_label(
+                "Acústica",
+                "Indica quão presente são os sons com equipaa música",
+                "acoustic_slider",
+            )
+            instr = slider_with_label(
+                "Instrumentalidade", "Instrumentalidade", "instr_slider"
+            )
 
-        dance = st.slider("Dançabilidade", 0, 100, 75, 1, key="dance_slider")
-        st.markdown(
-            f"""
-<div class="slider-label"><span>Dançabilidade</span><span>{dance}</span></div>
-""",
-            unsafe_allow_html=True,
+        submit = st.form_submit_button(
+            "Gerar recomendação", use_container_width=True, type="primary"
         )
-
-        energy = st.slider("Energia", 0, 100, 80, 1, key="energy_slider")
-        st.markdown(
-            f"""
-<div class="slider-label"><span>Energia </span><span>{energy}</span></div>
-""",
-            unsafe_allow_html=True,
-        )
-
-        speech = st.slider("Discurso", 0, 100, 80, 1, key="speechiness_slider")
-        st.markdown(
-            f"""
-<div class="slider-label"><span>Discurso</span><span>{speech}</span></div>
-""",
-            unsafe_allow_html=True,
-        )
-
-        acoustic = st.slider("Acústica", 0, 100, 20, 1, key="acoustic_slider")
-        st.markdown(
-            f"""
-<div class="slider-label"><span>Acústica</span><span>{acoustic}</span></div>
-""",
-            unsafe_allow_html=True,
-        )
-
-        instr = st.slider("Instrumentalidade", 0, 100, 60, 1, key="instr_slider")
-        st.markdown(
-            f"""
-<div class="slider-label"><span>Instrumentalidade</span><span>{instr}</span></div>
-""",
-            unsafe_allow_html=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-        submit = st.form_submit_button("Gerar recomendação", use_container_width=True)
 
     if submit:
         input_dict = {
@@ -124,64 +101,58 @@ with col1:
         }
 
         try:
-            resultados = recomendar_musica(input_dict, top_n=10)
+            resultados = recomendar_musica(input_dict, top_n=50)
             st.session_state["last_recommendations"] = resultados
         except Exception as e:
             st.error(f"Erro ao gerar recomendação: {e}")
 
 with col2:
-    st.markdown("### Músicas Recomendadas")
+    with st.container():
+        st.markdown("### Músicas Recomendadas")
 
-    input_dict = {
-        "popularity": pop / 100.0,
-        "danceability": dance / 100.0,
-        "energy": energy / 100.0,
-        "speechiness": speech / 100.0,
-        "acousticness": acoustic / 100.0,
-        "instrumentalness": instr / 100.0,
-    }
+        input_dict = {
+            "popularity": pop / 100.0,
+            "danceability": dance / 100.0,
+            "energy": energy / 100.0,
+            "speechiness": speech / 100.0,
+            "acousticness": acoustic / 100.0,
+            "instrumentalness": instr / 100.0,
+        }
 
-    try:
-        resultados = recomendar_musica(input_dict, top_n=10)
-        st.session_state["last_recommendations"] = resultados
-    except Exception as e:
-        st.error(f"Erro ao gerar recomendação: {e}")
+        try:
+            resultados = recomendar_musica(input_dict, top_n=50)
+            st.session_state["last_recommendations"] = resultados
+        except Exception as e:
+            st.error(f"Erro ao gerar recomendação: {e}")
 
-    display_songs = []
+        display_songs = []
 
-    # Verifica se há recomendações geradas pelo modelo
-    if (
-        "last_recommendations" in st.session_state
-        and st.session_state["last_recommendations"] is not None
-    ):
-        resultados = st.session_state["last_recommendations"]
+        # Verifica se há recomendações geradas pelo modelo
+        if (
+            "last_recommendations" in st.session_state
+            and st.session_state["last_recommendations"] is not None
+        ):
+            resultados = st.session_state["last_recommendations"]
 
-        # Converte o DataFrame em uma lista de dicionários compatível com o layout
-        display_list = []
-        for _, row in resultados.iterrows():
-            display_list.append(
-                {
-                    "title": row.get("title", row.get("song", "Unknown Title")),
-                    "artist": row.get("artist", row.get("artists", "Unknown Artist")),
-                    "genres": row.get("genres", row.get("genre", "")),
-                }
-            )
+            # Converte o DataFrame em uma lista de dicionários compatível com o layout
+            display_list = []
+            for _, row in resultados.iterrows():
+                display_list.append(
+                    {
+                        "title": row.get("title", row.get("song", "Unknown Title")),
+                        "artist": row.get(
+                            "artist", row.get("artists", "Unknown Artist")
+                        ),
+                        "genres": row.get("genres", row.get("genre", "")),
+                    }
+                )
 
-    else:
-        # Fallback: usa a lista estática padrão
-        display_list = display_songs
+        else:
+            # Fallback: usa a lista estática padrão
+            display_list = display_songs
 
-    # Gera o HTML dos cards (mesmo estilo que você já tinha)
-    html_tracks = '<div class="tracks-grid scrollable-list">'
-    for song in display_list:
-        html_tracks += f"""
-        \n<div class="track-card">
-            <!--<div class="track-image">🖼</div>-->
-            <div class="track-title">{song["title"]}</div>
-            <div class="track-artist">{song["artist"]}</div>
-            <div class="track-genres">{song["genres"]}</div>
-          </div>\n
-        """
-    # html_tracks += "</div>"
+        html_tracks = '<div class="tracks-grid scrollable-list">'
+        for song in display_list:
+            html_tracks += track_card_html(song)
 
-    st.markdown(html_tracks, unsafe_allow_html=True)
+        st.markdown(html_tracks, unsafe_allow_html=True)
