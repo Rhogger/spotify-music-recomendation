@@ -11,10 +11,13 @@ numpy = "*"
 streamlit = "*"
 ruff = "*"
 scikit-learn = "*"
+requests = "*"
 
 [dev-packages]
 nbstripout = "*"
 ipykernel = "*"
+requests = "*"
+python-dotenv = "*"
 
 [requires]
 python_version = "3.12"

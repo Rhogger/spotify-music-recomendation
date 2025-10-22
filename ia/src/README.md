@@ -13,7 +13,7 @@ Notebooks
 
 Datasets (gerados pelos notebooks)
 
-- spotify_top_2000_songs.csv — raw (origem: Kaggle). Não incluído neste repositório; importe/baixe do Kaggle antes de executar os notebooks.
+- spotify_top_2000_songs.csv — raw (origem: Kaggle).
 - data_clean.csv — dataset inicial limpo, utilizado em EDA e pré-processamento.
 - pre_processing.csv — saída intermediária com features preparadas para modelagem.
 
