@@ -186,19 +186,6 @@ checkpoints/
 venv/
 .venv/
 
-# VS Code workspace files (keeping settings)
-*.code-workspace
-# VS Code workspace files (keeping settings)
-*.code-workspace
-# Ignore files inside .vscode but allow specific workspace/settings files to be committed
-.vscode/*
-!.vscode/
-!.vscode/settings.json
-!.vscode/spotify-recommendation.code-workspace
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
 # OS specific files
 .DS_Store
 Thumbs.db
