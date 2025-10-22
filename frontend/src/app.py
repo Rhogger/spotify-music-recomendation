@@ -1,52 +1,16 @@
-import os
-import pickle
-
-import joblib
-import pandas as pd
 import streamlit as st
+from core.model_loader import load_models
+from core.recommender import recommend
+from dotenv import load_dotenv
+from services.spotify_api import fetch_spotify_data_parallel
 from ui.components import header, slider_with_label, track_card_html
 from ui.styles import load_styles
 
+# Load environment variables
+load_dotenv()
 
-@st.cache_resource
-def load_model():
-    # Diretório onde está este arquivo (app.py)
-    base_path = os.path.dirname(__file__)
-    ia_path = os.path.abspath(os.path.join(base_path, "../../ia/src"))
-
-    path_model = os.path.join(ia_path, "models/music_recommender_model.joblib")
-    path_preprocessor = os.path.join(ia_path, "models/music_preprocessor.joblib")
-    path_df = os.path.join(ia_path, "datasets/data_clean.csv")
-    path_features = os.path.join(ia_path, "models/music_model_features.pkl")
-    model = joblib.load(path_model)
-    preprocessor = joblib.load(path_preprocessor)
-    try:
-        df = pd.read_csv(path_df)
-    except Exception:
-        df = None
-
-    with open(path_features, "rb") as f:
-        features = pickle.load(f)
-    return model, preprocessor, df, features
-
-
-model, preprocessor, df_model, features = load_model()
-
-
-def recomendar_musica(
-    input_dict,
-    df=df_model,
-    model=model,
-    preprocessor=preprocessor,
-    features=features,
-    top_n=5,
-):
-    input_df = pd.DataFrame([input_dict])[features]
-    input_scaled = preprocessor.transform(input_df)
-    distances, indices = model.kneighbors(input_scaled, n_neighbors=top_n)
-    resultados = df.iloc[indices[0]].copy().reset_index(drop=True)
-    resultados["distancia"] = distances[0]
-    return resultados
+# Load models once at startup using singleton pattern
+model, preprocessor, df_model, features = load_models()
 
 
 st.set_page_config(page_title="Recomendações Spotify", page_icon="🎵", layout="wide")
@@ -79,11 +43,13 @@ with col1:
             )
             acoustic = slider_with_label(
                 "Acústica",
-                "Indica quão presente são os sons com equipaa música",
+                "Indica quão presente são os sons com equipamentos musicais na música",
                 "acoustic_slider",
             )
             instr = slider_with_label(
-                "Instrumentalidade", "Instrumentalidade", "instr_slider"
+                "Instrumentalidade",
+                "Indica quão a música tem presença de sons instrumentais",
+                "instr_slider",
             )
 
         submit = st.form_submit_button(
@@ -91,66 +57,68 @@ with col1:
         )
 
     if submit:
-        input_dict = {
-            "popularity": pop / 100.0,
-            "danceability": dance / 100.0,
-            "energy": energy / 100.0,
-            "speechiness": speech / 100.0,
-            "acousticness": acoustic / 100.0,
-            "instrumentalness": instr / 100.0,
-        }
-
         try:
-            resultados = recomendar_musica(input_dict, top_n=50)
+            resultados = recommend(
+                popularity=pop / 100.0,
+                danceability=dance / 100.0,
+                energy=energy / 100.0,
+                speechiness=speech / 100.0,
+                acousticness=acoustic / 100.0,
+                instrumentalness=instr / 100.0,
+                top_n=20,
+            )
             st.session_state["last_recommendations"] = resultados
         except Exception as e:
             st.error(f"Erro ao gerar recomendação: {e}")
 
 with col2:
-    with st.container():
-        st.markdown("### Músicas Recomendadas")
+    st.markdown("### Músicas Recomendadas")
 
-        input_dict = {
-            "popularity": pop / 100.0,
-            "danceability": dance / 100.0,
-            "energy": energy / 100.0,
-            "speechiness": speech / 100.0,
-            "acousticness": acoustic / 100.0,
-            "instrumentalness": instr / 100.0,
-        }
+    if (
+        "last_recommendations" in st.session_state
+        and st.session_state["last_recommendations"] is not None
+    ):
+        resultados = st.session_state["last_recommendations"]
 
-        try:
-            resultados = recomendar_musica(input_dict, top_n=50)
-            st.session_state["last_recommendations"] = resultados
-        except Exception as e:
-            st.error(f"Erro ao gerar recomendação: {e}")
+        # Convert DataFrame to list of dictionaries
+        tracks_list = resultados.to_dict("records")
 
-        display_songs = []
+        # Show progress while fetching Spotify data
+        with st.spinner("🔍 Buscando dados das músicas no Spotify..."):
+            display_list = fetch_spotify_data_parallel(tracks_list, max_workers=5)
 
-        # Verifica se há recomendações geradas pelo modelo
-        if (
-            "last_recommendations" in st.session_state
-            and st.session_state["last_recommendations"] is not None
-        ):
-            resultados = st.session_state["last_recommendations"]
+    else:
+        # Placeholder: orienta o usuário a ajustar parâmetros e gerar a recomendação
+        display_list = []
 
-            # Converte o DataFrame em uma lista de dicionários compatível com o layout
-            display_list = []
-            for _, row in resultados.iterrows():
-                display_list.append(
-                    {
-                        "title": row.get("title", row.get("song", "Unknown Title")),
-                        "artist": row.get(
-                            "artist", row.get("artists", "Unknown Artist")
-                        ),
-                        "genres": row.get("genres", row.get("genre", "")),
-                    }
-                )
+        placeholder_html = """
+        <div class="placeholder-instruction">
+            <div class="icon">🎵</div>
+            <h2>Comece a explorar</h2>
+            <div class="content">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Ajuste os <span class="highlight">sliders à esquerda</span> para personalizar os parâmetros da música</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Configure <span class="highlight">Popularidade, Dançabilidade, Energia</span> e mais</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Clique em <span class="highlight">Gerar recomendação</span> para descobrir novas músicas</div>
+                </div>
+                <div class="tip">
+                    💡 <strong>Dica:</strong> Varie Popularidade e Energia para resultados diferentes!
+                </div>
+            </div>
+        </div>
+        """
 
-        else:
-            # Fallback: usa a lista estática padrão
-            display_list = display_songs
+        st.markdown(placeholder_html, unsafe_allow_html=True)
 
+    # Se houver itens para exibir (recommendations), renderiza-os
+    if len(display_list) > 0:
         html_tracks = '<div class="tracks-grid scrollable-list">'
         for song in display_list:
             html_tracks += track_card_html(song)

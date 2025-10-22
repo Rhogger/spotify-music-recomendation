@@ -179,9 +179,6 @@ checkpoints/
 *.joblib
 *.model
 
-# Streamlit
-.streamlit/
-
 # Virtual environments (both pipenv and venv)
 venv/
 .venv/
