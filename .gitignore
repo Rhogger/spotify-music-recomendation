@@ -186,8 +186,3 @@ venv/
 # OS specific files
 .DS_Store
 Thumbs.db
-
-# Spotify API credentials (if any)
-spotify_credentials.json
-.spotify_token
-credentials.json
